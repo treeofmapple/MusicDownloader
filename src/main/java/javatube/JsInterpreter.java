@@ -2,26 +2,18 @@
 
 package javatube;
 
+import org.json.JSONObject;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.json.JSONObject;
 
 
 class LocalNameSpace extends java.util.AbstractMap<String, Object> {
@@ -34,9 +26,24 @@ class LocalNameSpace extends java.util.AbstractMap<String, Object> {
     public Object getValue(String key){
         return maps.get(key);
     }
+
+    public Map<String, Object> getAll(){
+        return maps;
+    }
+
     public LocalNameSpace newChild(Map<String, Object> obj){
         maps.putAll(obj);
         return new LocalNameSpace(maps);
+    }
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("LocalNameSpace {\n");
+        for (Map.Entry<String, Object> entry : maps.entrySet()) {
+            sb.append("  ").append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+        }
+        sb.append("}");
+        return sb.toString();
     }
     @Override
     public Object put(String key, Object value) {
@@ -233,6 +240,17 @@ public class JsInterpreter {
     private static final String QUOTES = "'\"/";
     private int namedObjectCounter = 0;
     private static final Map<String, BiFunction<Object, Object, Object>> OPERATORS = createOperatorsMap();
+    private static final Map<String, BiFunction<Object, Object, Object>> UNARY_OPERATORS_X = createUnaryXOperatorsMap();
+    private static final Map<String, BiFunction<Object, Object, Object>> ALL_OPERATORS = mergeOperators();
+
+    private static Map<String, BiFunction<Object, Object, Object>> mergeOperators() {
+        Map<String, BiFunction<Object, Object, Object>> mergedMap = new LinkedHashMap<>();
+        mergedMap.putAll(OPERATORS);
+        mergedMap.putAll(UNARY_OPERATORS_X);
+        return mergedMap;
+    }
+
+
     private static final Object JS_Undefined = new Object();
     private static final Map<Character, Integer> RE_FLAGS = new HashMap<>();
     static {
@@ -282,6 +300,25 @@ public class JsInterpreter {
 
         return OPERATORS;
     }
+    private static Map<String, BiFunction<Object, Object, Object>> createUnaryXOperatorsMap() {
+        Map<String, BiFunction<Object, Object, Object>> OPERATORS = new LinkedHashMap<>();
+
+        OPERATORS.put("typeof", JsInterpreter::jsTypeof);
+
+        return OPERATORS;
+    }
+
+    private static Object jsTypeof(Object expr, Object o) {
+        if (expr == null) return "object";
+        if (expr instanceof Boolean) return "boolean";
+        if (expr instanceof Number)
+            return "number";
+        if (expr instanceof String) return "string";
+        if (expr instanceof Runnable) return "function";
+
+        return "object";
+    }
+
     private static int jsBitOpOr(Object a, Object b) {
         return zeroise(a) | zeroise(b);
     }
@@ -530,7 +567,7 @@ public class JsInterpreter {
         return separated;
     }
 
-    private Object interpretExpression(String expr, LocalNameSpace localVars, int allowRecursion) throws Exception {
+     Object interpretExpression(String expr, LocalNameSpace localVars, int allowRecursion) throws Exception {
         Object[] result = interpretStatement(expr, localVars, allowRecursion);
         if((boolean) result[1]){
             throw new Exception("Cannot return from an expression. Expr: " + expr);
@@ -591,11 +628,11 @@ public class JsInterpreter {
             String obj = expr.substring(4);
             if (obj.startsWith("Date(")){
                 List<String> result = separateAtParen(obj.substring(4), null);
-                String left = result.get(0).substring(1).replace("\"", "");
+                String left = result.get(0).substring(1);
                 String right = result.get(1);
 
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-                ZonedDateTime zonedDateTime = ZonedDateTime.parse(left, formatter);
+                ZonedDateTime zonedDateTime = ZonedDateTime.parse((String) interpretExpression(left, localVars, allowRecursion), formatter);
                 Instant instant = zonedDateTime.toInstant();
 
                 expr = dump(instant.toEpochMilli(), localVars) + right;
@@ -607,6 +644,21 @@ public class JsInterpreter {
         if (expr.startsWith("void ")){
             interpretStatement(expr.substring(5), localVars, allowRecursion);
             return new Object[]{0, shouldReturn};
+        }
+
+
+        for (String op : UNARY_OPERATORS_X.keySet()) {
+            if (!expr.startsWith(op)) {
+                continue;
+            }
+            String operand = expr.substring(op.length());
+            if (operand.isEmpty() || operand.charAt(0) != ' ') {
+                continue;
+            }
+            Object[] opResult = handleOperators(expr, localVars, allowRecursion);
+            if (opResult.length > 0) {
+                return new Object[]{opResult[0], shouldReturn};
+            }
         }
 
         if (expr.startsWith("{")){
@@ -700,7 +752,12 @@ public class JsInterpreter {
             List<String> result = separateAtParen(expr.substring(m.end() - 1), null);
             Object cndn = result.get(0).substring(1);
             expr = result.get(1);
-            List<String> result2 = separateAtParen(expr, null);
+            List<String> result2;
+            if (expr.startsWith("{")){
+                result2 = separateAtParen(expr, null);
+            }else{
+                result2 = separateAtParen(String.format(" %s;", expr), ";");
+            }
             String ifExpr = result2.get(0).substring(1);
             expr = result2.get(1);
             String elseExpr = "";
@@ -906,15 +963,18 @@ public class JsInterpreter {
         String reg = """
                 (?x)
                             (?<assign>
-                                (?<out>[a-zA-Z_$][\\w$]*)(?:\\[(?<index>[^]]+?)])?\\s*
+                                (?<out>[a-zA-Z_$][\\w$]*)(?:\\[(?<index>[^\\[\\]]+(?:\\[[^\\[\\]]+(?:\\[[^\\]]+\\])?\\])?)])?\\s*
                                 (?<op>\\||\\*\\*|-|\\+|\\^|&&|\\?|/|%|\\|\\||&|>>|<<|\\*|\\?\\?)?
                                 =(?!=)(?<expr>.*)$
                             )|(?<return>
                                 (?!if|return|true|false|null|undefined|NaN)(?<name>^[a-zA-Z_$][\\w$]*)$
+                            )|(?<attribute>
+                                (?<var>[a-zA-Z_$][\\w$]*)(?:
+                                    (?<nullish>\\?)?\\.(?<member>[^(]+)|
+                                    \\[(?<member2>[^\\[\\]]+(?:\\[[^\\[\\]]+(?:\\[[^\\]]+\\])?\\])?)]
+                                )\\s*
                             )|(?<indexing>
                                 (?<in>[a-zA-Z_$][\\w$]*)\\[(?<idx>.+)]$
-                            )|(?<attribute>
-                                (?<var>[a-zA-Z_$][\\w$]*)(?:(?<nullish>\\?)?\\.(?<member>[^(]+)|\\[(?<member2>[^]]+)])\\s*
                             )|(?<function>
                                 (?<fname>[a-zA-Z_$][\\w$]*)\\((?<args>.*)\\)$
                             )""";
@@ -965,7 +1025,12 @@ public class JsInterpreter {
             return new Object[]{Double.NaN, shouldReturn};
 
         }else if(find && m2.group("return") != null){
-            return new Object[]{localVars.getValue(m2.group("name")), shouldReturn};
+            Object r = localVars.getValue(m2.group("name"));
+            if (r == null){
+                return new Object[]{extractGlobalVar(m2.group("name"), localVars), shouldReturn};
+            }else {
+                return new Object[]{r, shouldReturn};
+            }
         }
 
         if (find && m2.group("indexing") != null && m2.start() == 0){
@@ -974,25 +1039,9 @@ public class JsInterpreter {
             return new Object[]{index(val, idx, false), shouldReturn};
         }
 
-        for(String op : OPERATORS.keySet()){
-            List<String> separated = _separate(expr, op, null);
-            StringBuilder rightExpr = new StringBuilder(separated.remove(separated.size() - 1));
-            while (true){
-                if ((op.equals("?") || op.equals("<") || op.equals(">") || op.equals("*") || op.equals("-")) && separated.size() > 1 && separated.get(separated.size() - 1).isEmpty()){
-                    separated.remove(separated.size() - 1);
-                }else if (!(!separated.isEmpty() && op.equals("?") && rightExpr.toString().startsWith("."))){
-                    break;
-                }
-                rightExpr.insert(0, op);
-                if (!op.equals("-")){
-                    rightExpr.insert(0, separated.remove(separated.size() - 1) + op);
-                }
-            }
-            if (separated.isEmpty()){
-                continue;
-            }
-            Object leftVal = interpretExpression(String.join(op, separated), localVars, allowRecursion);
-            return new Object[]{operator(op, leftVal, rightExpr.toString(), expr, localVars, allowRecursion), shouldReturn};
+        Object[] opResult = handleOperators(expr, localVars, allowRecursion);
+        if(opResult.length > 0){
+            return new Object[]{opResult[0], shouldReturn};
         }
 
         try{
@@ -1047,7 +1096,7 @@ public class JsInterpreter {
                     if(obj == null && !variable.equals("String") && !variable.equals("Math") && !variable.equals("Array")){
                         if(!_objects.containsValue(variable)){
                             try {
-                                _objects.put(variable, extractObject(variable));
+                                _objects.put(variable, extractObject(variable, localVars));
                             }catch (Exception e){
                                 if (nullish == null){
                                     throw new Exception(e);
@@ -1113,7 +1162,7 @@ public class JsInterpreter {
                             assert obj != null;
 
                             String arg = (String) argvals.get(0);
-                            return new ArrayList<>(Arrays.asList(((String) obj).split(arg)));
+                            return new ArrayList<>(Arrays.asList(((String) obj).split(Pattern.quote(arg))));
                         }
                         case "join" -> {
                             assertion(obj instanceof List<?>, "must be applied on a list");
@@ -1253,7 +1302,19 @@ public class JsInterpreter {
         }
         throw new Exception("Unsupported JS expression: " + expr);
     }
-    private Object extractObject(String objName) throws Exception {
+
+    private Object extractGlobalVar(String var, LocalNameSpace localVars) {
+        Matcher matcher = Pattern.compile("var\\s?" + Pattern.quote(var) + "=(?<var>.*?)[,;]").matcher(code);
+        if (matcher.find()){
+            Object code = matcher.group("var");
+            localVars.put(var, code);
+            return code;
+        }else {
+            return null;
+        }
+    }
+
+    private Object extractObject(String objName, LocalNameSpace globalStack) throws Exception {
         Map<Object, FunctionWithRepr> obj = new HashMap<>();
         Pattern pattern = Pattern.compile("(?x)" +
                 "(?<!\\.)" + Matcher.quoteReplacement(objName) + "\\s*=\\s*\\{\\s*"+
@@ -1275,7 +1336,7 @@ public class JsInterpreter {
             List<String> argNames = List.of(fieldsM.group("args").split(","));
             String name = removeQuotes(fieldsM.group("key"));
             String code = fieldsM.group("code");
-            obj.put(name, new FunctionWithRepr(buildFunction(argNames, code, new HashMap<>()), "f<" + name + ">"));
+            obj.put(name, new FunctionWithRepr(buildFunction(argNames, code, globalStack.getAll()), "f<" + name + ">"));
         }
         return obj;
     }
@@ -1299,6 +1360,30 @@ public class JsInterpreter {
             }
         }
         return -1;
+    }
+
+    private Object[] handleOperators(String expr, LocalNameSpace localVars, int allowRecursion) throws Exception {
+        for(String op : ALL_OPERATORS.keySet()){
+            List<String> separated = _separate(expr, op, null);
+            StringBuilder rightExpr = new StringBuilder(separated.remove(separated.size() - 1));
+            while (true){
+                if ((op.equals("?") || op.equals("<") || op.equals(">") || op.equals("*") || op.equals("-")) && separated.size() > 1 && separated.get(separated.size() - 1).isEmpty()){
+                    separated.remove(separated.size() - 1);
+                }else if (!(!separated.isEmpty() && op.equals("?") && rightExpr.toString().startsWith("."))){
+                    break;
+                }
+                rightExpr.insert(0, op);
+                if (!op.equals("-")){
+                    rightExpr.insert(0, separated.remove(separated.size() - 1) + op);
+                }
+            }
+            if (separated.isEmpty()){
+                continue;
+            }
+            Object leftVal = interpretExpression(String.join(op, separated), localVars, allowRecursion);
+            return new Object[]{operator(op, leftVal, rightExpr.toString(), expr, localVars, allowRecursion), true};
+        }
+        return new Object[]{};
     }
 
     private Object operator(String op, Object leftVal, Object rightExpr, String expr, LocalNameSpace localVars, int allowRecursion) throws Exception {
@@ -1341,7 +1426,11 @@ public class JsInterpreter {
                     finalIdx = (int) Math.round((double) idx);
                 }else {
                     if(idx instanceof String){
-                        finalIdx = Integer.parseInt((String) idx);
+                        try {
+                            finalIdx = Integer.parseInt((String) idx);
+                        }catch (NumberFormatException e){
+                            finalIdx = (int) Double.parseDouble((String) idx);
+                        }
                     }else{
                         finalIdx = (int) idx;
                     }
@@ -1462,18 +1551,46 @@ public class JsInterpreter {
         return r;
     }
 
-    private String fixup_n_function_code(String[] argnames, String code){
+    String[] extractPlayerJsGlobalVar(String jsCode){
+        Pattern pattern1 = Pattern.compile("""
+                (?x)
+                    (?<q1>[\\"\\'])use\\s+strict(\\k<q1>);\\s*
+                    (?<code>
+                        var\\s+(?<name>[a-zA-Z0-9_$]+)\\s*=\\s*
+                        (?<value>
+                            (?<q2>[\\"\\']).*?(\\k<q2>)
+                            \\.split\\((?<q3>[\\"\\']).*?(\\k<q3>)\\)
+                            |\\[\\s*(?:(?<q4>[\\"\\']).*?(\\k<q4>)\\s*,?\\s*)+\\]
+                        )
+                    )[;,]
+                """);
+        Matcher matcher = pattern1.matcher(jsCode);
+        if (matcher.find()){
+            String name = matcher.group("name");
+            String code = matcher.group("code");
+            String value = matcher.group("value");
+            return new String[]{name, code, value};
+        }
+        else {
+            return new String[]{null, null, null};
+        }
+    }
+
+    private String fixup_n_function_code(String[] argnames, String code, String fullCode){
+        String globalVar = extractPlayerJsGlobalVar(fullCode)[1];
+        if (globalVar != null){
+            code = globalVar + "; " + code;
+        }
         String regex = ";\\s*if\\s*\\(\\s*typeof\\s+[a-zA-Z0-9_$]+\\s*===?\\s*(['\"])undefined\\1\\s*\\)\\s*return\\s+" + Pattern.quote(argnames[0]) + ";";
         Pattern pattern = Pattern.compile(regex);
         Matcher matcher = pattern.matcher(code);
-        String updatedCode = matcher.replaceAll(";");
 
-        return updatedCode;
+        return matcher.replaceAll(";");
     }
 
     private FunctionWithRepr extractFuName(String funName) throws Exception {
         Map<String, String> code = extractFunctionCode(funName);
-        Object obj = extractFunctionFromCode(List.of(code.get("args").split(",")), fixup_n_function_code(code.get("args").split(","), code.get("code")), new HashMap<>());
+        Object obj = extractFunctionFromCode(List.of(code.get("args").split(",")), fixup_n_function_code(code.get("args").split(","), code.get("code"), this.code), new HashMap<>());
         return new FunctionWithRepr(obj, "F<" + funName +">");
     }
     public Object callFunction(String funName, Object arg) throws Exception {

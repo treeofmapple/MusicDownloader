@@ -1,20 +1,18 @@
 package javatube;
 
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class JsInterpreterTest {
     static Stream<String> fileNames() {
@@ -38,7 +36,12 @@ public class JsInterpreterTest {
                 "20dfca59-player_ias.vflset-en_US.txt",
                 "b12cc44b-player_ias.vflset-en_US.txt",
                 "3bb1f723-player_ias.vflset-en_US.txt",
-                "2f1832d2-player_ias.vflset-en_US.txt"
+                "2f1832d2-player_ias.vflset-en_US.txt",
+                "e7567ecf-player_ias_tce.vflset-en_US.txt",
+                "74e4bb46-player_ias_tce.vflset-en_US.txt",
+                "4fcd6e4a-player_ias.vflset-en_US.txt",
+                "20830619-player_ias.vflset-en_US.txt",
+                "6450230e-player_ias.vflset-en_US.txt"
                 );
     }
     private String readFileContent(String fileName) throws IOException {
@@ -67,7 +70,7 @@ public class JsInterpreterTest {
 
         String result = (String) new JsInterpreter(yt.getJs()).callFunction(c.getThrottlingFunctionName(), Nsig);
 
-        assertFalse(result.startsWith("enhanced_except"));
+        assertFalse(result.startsWith("enhanced_except") || result.endsWith(Nsig));
     }
 
     @ParameterizedTest
@@ -113,6 +116,11 @@ public class JsInterpreterTest {
             case "b12cc44b-player_ias.vflset-en_US.txt"  -> List.of("FnDBX5UEM1NHNyr", "Ema", "70QzMb0nhneLLS6BN");
             case "3bb1f723-player_ias.vflset-en_US.txt"  -> List.of("-zeqduSAj2ON5", "fyn", "70QzMb0nhneLLS6BN");
             case "2f1832d2-player_ias.vflset-en_US.txt"  -> List.of("e7hn0bMSQ", "B_H", "70QzMb0nhneLLS6BN");
+            case "e7567ecf-player_ias_tce.vflset-en_US.txt"  -> List.of("eGJT0Dt7IGpKgk", "X_S", "70QzMb0nhneLLS6BN");
+            case "74e4bb46-player_ias_tce.vflset-en_US.txt"  -> List.of("YRvnhiNcKsUj", "Bzs", "70QzMb0nhneLLS6BN");
+            case "4fcd6e4a-player_ias.vflset-en_US.txt"  -> List.of("DtBH24Jm4Vu4ga", "gGu", "70QzMb0nhneLLS6BN");
+            case "20830619-player_ias.vflset-en_US.txt"  -> List.of("R5zfbyrpEoUHl", "e2E", "70QzMb0nhneLLS6BN");
+            case "6450230e-player_ias.vflset-en_US.txt"  -> List.of("yaMQah-K-J8VJ0-", "J5S", "70QzMb0nhneLLS6BN");
             default -> List.of("", "", "");
         };
     }
@@ -149,6 +157,11 @@ public class JsInterpreterTest {
             case "b12cc44b-player_ias.vflset-en_US.txt" -> List.of("EJ8wRAIgINWRWqXhcJg0Am3IRnTm5qrUo93yib6IL45hGtp70P4CQEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDoOU", "PBa", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
             case "3bb1f723-player_ias.vflset-en_US.txt" -> List.of("iwR8IgIN5RWqXhcJg0Em3IRATm5qrUo93yAb6IL40hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO", "pen", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
             case "2f1832d2-player_ias.vflset-en_US.txt" -> List.of("KpC5ut2EHrCarJWeXtsVBjE-IM3YQwOpfz8kcrr8emyEL62UySqmFPy6MPf8wVOXd41yKQhDHvEx_8f-Gu75ltKNohkk-", "dCH", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
+            case "e7567ecf-player_ias_tce.vflset-en_US.txt" -> List.of("UgoDDREOR36Kj5wrO_NjqCHEmy6PGNIGWF9GKnFEIC4P0eptGh54LI6biy39oUrq5mTnRI3mE0gJchXqWRWNIgIARw8JQ0qO", "$oW", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
+            case "74e4bb46-player_ias_tce.vflset-en_US.txt" -> List.of("TxUgoDDREeR36Kj5wrO_NjqCHEmy6PGNIGWF9GKnFEIC4P07ptGh54LI6biy39oUrqAmTnRIOmE0gJchXqWRWNIgIARw8JQ0q3", "bol", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
+            case "4fcd6e4a-player_ias.vflset-en_US.txt" -> List.of("eTxUgoDDREOR36Kj5wrO_NjqCHEmy6PGNIGWq9GKnFEIC4P07ptGh54LI6biy39oUrq5mTnRI3mE0gJchXqWRWNIgIARw8JQ0", "YqR", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
+            case "20830619-player_ias.vflset-en_US.txt" -> List.of("IUgoDDREeR36Kj5wrO_NjqCOEmy6PGNIGWF9GKnFExCAP07ptGh54LI6biy39oUrq5mTnRI3mE0gJchXqWRWNIgIARw8JQ0qO4", "X8$", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
+            case "6450230e-player_ias.vflset-en_US.txt" -> List.of("qOG0QJ8wRAIgINWRWqXhcJg0Em3IRnAm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWTINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO", "L1S", "AOq0QJ8wRAIgINWRWqXhcJg0Em3IRnTm5qrUo93yib6IL45hGtp70P4CIEFnKG9FWGINGP6ymEHCqjN_Orw5jK63ReERDDogUxTO");
             default -> List.of("", "", "");
         };
 

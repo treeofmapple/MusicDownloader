@@ -21,8 +21,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import javatube.exceptions.AgeRestrictedError;
-import javatube.exceptions.BotDetectionError;
-import javatube.exceptions.LiveStreamError;
+import javatube.exceptions.BotDetectionException;
+import javatube.exceptions.LiveStreamException;
 import javatube.exceptions.LiveStreamOffline;
 import javatube.exceptions.MembersOnlyError;
 import javatube.exceptions.RecordingUnavailableError;
@@ -392,7 +392,7 @@ public class Youtube {
                     throw new AgeRestrictedError(getVideoId());
 
                 } else if (reason.equals("Sign in to confirm you’re not a bot")){
-                    throw new BotDetectionError(getVideoId());
+                    throw new BotDetectionException(getVideoId());
 
                 }else {
                     throw new VideoPrivateError(getVideoId());
@@ -423,7 +423,7 @@ public class Youtube {
             }
         }
         if (getVidInfo().getJSONObject("videoDetails").has("isLive")){
-            throw new LiveStreamError(getVideoId());
+            throw new LiveStreamException(getVideoId());
         }
     }
 
