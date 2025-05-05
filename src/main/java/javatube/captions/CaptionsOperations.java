@@ -8,18 +8,15 @@ import javatube.utils.SystemUtils;
 
 public class CaptionsOperations {
 
-	private CaptionsUtils utils;
-	private SystemUtils systemUtils;
-
 	public void download(String fileName, String savePath) {
-		String path = systemUtils.checkPath(fileName, savePath);
+		String path = SystemUtils.checkPath(fileName, savePath);
 		String content;
 
 		try {
 			if (fileName.endsWith(".srt")) {
-				content = utils.xmlCaptionToStr();
+				content = CaptionsUtils.xmlCaptionToStr();
 			} else {
-				content = utils.getXmlCaptions();
+				content = CaptionsUtils.getXmlCaptions();
 			}
 			if (content == null || content.isBlank()) {
 				throw new DownloadFailedException("No content to write.");

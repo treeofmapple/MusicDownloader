@@ -7,10 +7,6 @@ import lombok.Getter;
 
 public class InnerTube {
 
-	private boolean usePoToken;
-
-	private JSONObject defaultClient = new JSONObject();
-	
 	@Getter
     private JSONObject innerTubeContext;
     private boolean requireJsPlayer;
@@ -18,8 +14,27 @@ public class InnerTube {
     private JSONObject header;
     private String apiKey;
 
+    private final boolean usePoToken;
     private String accessPoToken;
     private String accessVisitorData;
+
+	public InnerTube(String client, boolean usePoToken, boolean allowCache) throws JSONException {
+        JSONObject defaultClient = InnerTubeUtils.loadDefaultClient();
+        JSONObject clientObj = defaultClient.getJSONObject(client);
+		
+        innerTubeContext = clientObj.getJSONObject("innerTubeContext");
+        requireJsPlayer = clientObj.getBoolean("requireJsPlayer");
+        requirePoToken = clientObj.getBoolean("requirePoToken");
+        header = clientObj.getJSONObject("header");
+        apiKey = clientObj.getString("apiKey");
+        this.usePoToken = usePoToken;
+        
+        JSONObject tokenData = InnerTubeUtils.loadCachedTokens(usePoToken, allowCache);
+        if (tokenData != null) {
+            accessVisitorData = tokenData.optString("visitorData");
+            accessPoToken = tokenData.optString("poToken");
+        }
+	}
 	
     public InnerTube(String client) throws JSONException {
         this(client, false, false);
@@ -27,6 +42,10 @@ public class InnerTube {
     
     public InnerTube(String client, boolean usePoToken) throws JSONException {
         this(client, usePoToken, false);
+    }
+ 
+    private String getBaseUrl() {
+    	return "https://www.youtube.com/youtubei/v1";
     }
     
     

@@ -4,6 +4,8 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.tom.program</groupId>
 	<artifactId>musicyoutube</artifactId>
+	<packaging>jar</packaging>
+
 	<version>v1</version>
 	<name>YoutubeMusic</name>
 
@@ -102,6 +104,5 @@
 			</plugin>
 		</plugins>
 	</build>
-
 
 </project>

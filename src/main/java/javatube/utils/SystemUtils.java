@@ -1,8 +1,8 @@
 package javatube.utils;
 
-public class SystemUtils {
+public final class SystemUtils {
 
-	public String checkPath(String fileName, String savePath) {
+	public static String checkPath(String fileName, String savePath) {
 		if (savePath.endsWith("/")) {
 			return savePath + fileName;
 		} else {

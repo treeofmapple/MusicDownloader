@@ -5,7 +5,7 @@ import org.json.JSONObject;
 
 import lombok.Getter;
 
-public abstract class Captions {
+public class Captions {
 
 	@Getter
 	private final String url;

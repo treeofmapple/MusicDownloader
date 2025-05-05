@@ -12,14 +12,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javatube.utils.SystemLogger;
-import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
-public class CaptionsUtils {
+public final class CaptionsUtils {
 
-	private final Captions caption;
+	private CaptionsUtils(){
+		
+	}
 	
-	protected String getXmlCaptions() {
+	private static Captions caption;
+	
+	public static String getXmlCaptions() {
     	HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(caption.getUrl()))
@@ -35,7 +37,7 @@ public class CaptionsUtils {
     	}
     }
 	
-	protected String xmlCaptionToStr() {
+	public static String xmlCaptionToStr() {
 		try {
 			return generateRegex();
 		} catch (Exception e) {
@@ -44,15 +46,15 @@ public class CaptionsUtils {
 		}
 	}
 	
-	private String generateSrtCaptions() throws Exception {
+	private static String generateSrtCaptions() throws Exception {
 		return getXmlCaptions();
 	}
 	
-	private String decodeString(String decode) throws UnsupportedEncodingException {
+	private static String decodeString(String decode) throws UnsupportedEncodingException {
 		return URLDecoder.decode(decode, StandardCharsets.UTF_8.name());
 	}
 	
-	private String srtTimeFormat(Float d) {
+	private static String srtTimeFormat(Float d) {
 		int totalMilliseconds = Math.round(d * 1000);
         int hours = totalMilliseconds / 3600000;
         int minutes = (totalMilliseconds % 3600000) / 60000;
@@ -62,7 +64,7 @@ public class CaptionsUtils {
         return String.format("%02d:%02d:%02d,%03d", hours, minutes, seconds, milliseconds);
 	}
 
-	private String generateRegex() throws Exception {
+	private static String generateRegex() throws Exception {
 		String xml = generateSrtCaptions();
 		if (xml == null) {
 			return "";
