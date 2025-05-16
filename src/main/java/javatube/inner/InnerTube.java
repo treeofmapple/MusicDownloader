@@ -48,6 +48,9 @@ public class InnerTube {
     	return "https://www.youtube.com/youtubei/v1";
     }
     
+    private String getBaseParam(){
+        return "{prettyPrint: \"false\"}";
+    }
     
 }
 
